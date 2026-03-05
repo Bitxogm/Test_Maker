@@ -1,0 +1,50 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserPlan {
+  FREE
+  PRO
+}
+
+enum TestStatus {
+  PENDING
+  RUNNING
+  PASSED
+  FAILED
+  ERROR
+}
+
+model User {
+  id           String        @id @default(uuid())
+  email        String        @unique
+  name         String
+  passwordHash String
+  plan         UserPlan      @default(FREE)
+  createdAt    DateTime      @default(now())
+  sessions     TestSession[]
+
+  @@map("users")
+}
+
+model TestSession {
+  id             String     @id @default(uuid())
+  projectId      String?
+  userId         String
+  user           User       @relation(fields: [userId], references: [id])
+  originalCode   String     @db.Text
+  generatedTests String?    @db.Text
+  status         TestStatus @default(PENDING)
+  inputLanguage  String
+  outputLanguage String
+  analysisMode   String
+  mongoLogId     String?
+  createdAt      DateTime   @default(now())
+
+  @@map("test_sessions")
+}
