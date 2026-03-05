@@ -32,7 +32,7 @@ const BINARY_EXTENSIONS = new Set([
 const IGNORED_FILE_PATTERNS = [
   /\.example$/, /\.sample$/, /\.template$/, /\.env\.example$/,
   /package-lock\.json$/, /yarn\.lock$/, /pnpm-lock\.yaml$/,
-  /check-secrets\.js$/,
+  /check-secrets\.js$/,/\.sh$/, /\.md$/, /\.txt$/, /\.log$/,
 ];
 
 const VALUE_PATTERN = /[=:]["']?[a-zA-Z0-9+/\-_]{8,}["']?/;
