@@ -1,0 +1,12 @@
+FROM node:20-alpine
+
+RUN mkdir -p /sandbox && chown node:node /sandbox
+WORKDIR /deps
+USER node
+RUN npm init -y && \
+    npm install jest ts-jest jsdom @testing-library/react @testing-library/jest-dom @testing-library/user-event typescript -D
+
+WORKDIR /sandbox
+ENV NODE_PATH=/deps/node_modules
+ENV NODE_ENV=test
+CMD ["sh"]

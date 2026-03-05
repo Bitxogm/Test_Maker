@@ -1,0 +1,13 @@
+FROM node:20-alpine
+
+RUN mkdir -p /sandbox && chown node:node /sandbox
+WORKDIR /deps
+USER node
+RUN npm init -y && \
+    npm install next jest jest-environment-jsdom @testing-library/react @testing-library/jest-dom @testing-library/user-event typescript -D
+
+WORKDIR /sandbox
+ENV NODE_PATH=/deps/node_modules
+# Mock básico de next/jest si fuera necesario, pero con las dependencias basta para ejecutar configuraciones de Next
+ENV NODE_ENV=test
+CMD ["sh"]

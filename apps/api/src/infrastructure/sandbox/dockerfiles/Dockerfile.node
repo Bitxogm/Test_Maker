@@ -1,0 +1,15 @@
+FROM node:20-alpine
+
+RUN mkdir -p /sandbox && chown node:node /sandbox
+WORKDIR /sandbox
+
+# Pre-instalar dependencias en /deps para persistencia
+WORKDIR /deps
+USER node
+RUN npm init -y && \
+    npm install jest ts-jest vitest typescript @types/jest -D
+
+WORKDIR /sandbox
+ENV NODE_PATH=/deps/node_modules
+ENV NODE_ENV=test
+CMD ["sh"]

@@ -1,0 +1,9 @@
+FROM python:3.11-slim
+
+RUN useradd -m sandbox && mkdir -p /sandbox && chown sandbox:sandbox /sandbox
+WORKDIR /sandbox
+
+USER sandbox
+RUN pip install --no-cache-dir pytest pytest-cov
+
+CMD ["sh"]
