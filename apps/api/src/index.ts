@@ -7,9 +7,17 @@ import { Server } from "socket.io";
 import dotenv from "dotenv";
 import { createApiRouter } from "./api/routes";
 import { setupWebSockets } from "./api/websockets/testStream";
+import mongoose from "mongoose";
 
 // Cargar variables de entorno
-dotenv.config({ path: "../../.env.local" });
+dotenv.config();
+
+// ── Conexión a MongoDB ─────────────────────────────────────────────
+const MONGODB_URI = process.env.MONGODB_URI || "mongodb://localhost:27017/testlab";
+mongoose
+  .connect(MONGODB_URI)
+  .then(() => console.warn("📦 MongoDB conectado"))
+  .catch((err) => console.error("❌ Error conectando a MongoDB:", err));
 
 const app = express();
 const httpServer = createServer(app);

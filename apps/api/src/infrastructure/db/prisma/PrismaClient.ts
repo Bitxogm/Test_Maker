@@ -7,7 +7,9 @@ export class PrismaClientSingleton {
 
   public static getInstance(): PrismaClient {
     if (!PrismaClientSingleton.instance) {
-      PrismaClientSingleton.instance = new PrismaClient();
+      PrismaClientSingleton.instance = new PrismaClient({
+        datasourceUrl: process.env.DATABASE_URL,
+      });
     }
     return PrismaClientSingleton.instance;
   }
