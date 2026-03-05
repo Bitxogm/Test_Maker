@@ -5,6 +5,8 @@ import morgan from "morgan";
 import { createServer } from "http";
 import { Server } from "socket.io";
 import dotenv from "dotenv";
+import { createApiRouter } from "./api/routes";
+import { setupWebSockets } from "./api/websockets/testStream";
 
 // Cargar variables de entorno
 dotenv.config({ path: "../../.env.local" });
@@ -21,38 +23,22 @@ const io = new Server(httpServer, {
 });
 
 // ── Middlewares globales ───────────────────────────────────────────
-app.use(helmet()); // Cabeceras de seguridad
-app.use(
-  cors({
-    origin: process.env.FRONTEND_URL || "http://localhost:3000",
-  })
-);
-app.use(morgan("dev")); // Logs de peticiones
-app.use(express.json({ limit: "1mb" })); // Parsear JSON (límite para código grande)
+app.use(helmet());
+app.use(cors({ origin: process.env.FRONTEND_URL || "http://localhost:3000" }));
+app.use(morgan("dev"));
+app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true }));
 
 // ── Rutas ─────────────────────────────────────────────────────────
-// TODO: importar rutas cuando las creemos
-// app.use("/api/auth", authRouter);
-// app.use("/api/sessions", sessionsRouter);
+app.use("/api", createApiRouter(io));
 
-// Health check — útil para Docker y Hetzner
+// Health check
 app.get("/health", (_req, res) => {
-  res.json({
-    status: "ok",
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || "development",
-  });
+  res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
 // ── WebSockets ────────────────────────────────────────────────────
-io.on("connection", (socket) => {
-  console.warn(`Cliente conectado: ${socket.id}`);
-
-  socket.on("disconnect", () => {
-    console.warn(`Cliente desconectado: ${socket.id}`);
-  });
-});
+setupWebSockets(io);
 
 // ── Arrancar servidor ─────────────────────────────────────────────
 const PORT = process.env.PORT || 3001;
@@ -62,5 +48,3 @@ httpServer.listen(PORT, () => {
   console.warn(`🔌 WebSockets listos`);
   console.warn(`🌍 Entorno: ${process.env.NODE_ENV || "development"}`);
 });
-
-export { io };
