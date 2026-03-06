@@ -1,9 +1,12 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Editor from "@monaco-editor/react";
 import { socket } from "@/lib/socket";
 import { generateTests, runTests } from "@/lib/api";
+import { isAuthenticated, getUser } from "@/lib/auth";
+import Header from "./components/Header";
 
 const DEFAULT_CODE = {
   javascript: `function sum(a, b) {\n  return a + b;\n}`,
@@ -12,6 +15,7 @@ const DEFAULT_CODE = {
 };
 
 export default function Dashboard() {
+  const router = useRouter();
   const [language, setLanguage] = useState<"javascript" | "typescript" | "python">("javascript");
   const [code, setCode] = useState(DEFAULT_CODE.javascript);
   const [generatedTests, setGeneratedTests] = useState("");
@@ -22,8 +26,15 @@ export default function Dashboard() {
   const [isRunning, setIsRunning] = useState(false);
   const [coverage, setCoverage] = useState({ passed: 0, failed: 0, skipped: 0 });
   const [status, setStatus] = useState<"idle" | "generating" | "running" | "done">("idle");
+  const [user, setUser] = useState<any>(null);
 
   useEffect(() => {
+    if (!isAuthenticated()) {
+      router.push("/login");
+      return;
+    }
+    setUser(getUser());
+
     socket.on("test:output", ({ line }: { line: string }) => {
       setTerminalOutput((prev) => [...prev, line]);
     });
@@ -38,7 +49,7 @@ export default function Dashboard() {
       socket.off("test:output");
       socket.off("test:results");
     };
-  }, []);
+  }, [router]);
 
   const handleLanguageChange = (newLang: "javascript" | "typescript" | "python") => {
     setLanguage(newLang);
@@ -46,10 +57,17 @@ export default function Dashboard() {
   };
 
   const handleGenerate = async () => {
+    if (!user) return;
     setIsGenerating(true);
     setStatus("generating");
     try {
-      const response = await generateTests(code, language, language, "comprehensive", "user-1");
+      const response = await generateTests(
+        code,
+        language,
+        language,
+        "comprehensive",
+        user.id || user.sub || "anonymous"
+      );
       setGeneratedTests(response.unitTests);
       setSessionId(response.sessionId);
       setStatus("idle");
@@ -78,6 +96,7 @@ export default function Dashboard() {
 
   return (
     <main className="flex flex-col h-screen bg-dark-900 text-white font-sans overflow-hidden">
+      <Header />
       {/* Main Content */}
       <div className="flex flex-1 overflow-hidden">
         {/* Left Panel - Editor */}
@@ -209,15 +228,14 @@ export default function Dashboard() {
 
         <div className="flex items-center space-x-3">
           <div
-            className={`w-3 h-3 rounded-full ${
-              status === "generating"
-                ? "bg-neon-cyan animate-pulse"
-                : status === "running"
-                  ? "bg-neon-green animate-pulse"
-                  : status === "done"
-                    ? "bg-neon-purple shadow-[0_0_8px_#bf00ff]"
-                    : "bg-gray-600"
-            }`}
+            className={`w-3 h-3 rounded-full ${status === "generating"
+              ? "bg-neon-cyan animate-pulse"
+              : status === "running"
+                ? "bg-neon-green animate-pulse"
+                : status === "done"
+                  ? "bg-neon-purple shadow-[0_0_8px_#bf00ff]"
+                  : "bg-gray-600"
+              }`}
           />
           <span className="text-xs font-bold tracking-widest opacity-70 uppercase">{status}</span>
         </div>
