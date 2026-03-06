@@ -1,6 +1,6 @@
 FROM node:20-alpine
 
-RUN mkdir -p /sandbox && chown node:node /sandbox
+RUN mkdir -p /sandbox /deps && chown -R node:node /sandbox /deps
 WORKDIR /sandbox
 
 # Pre-instalar dependencias en /deps para persistencia

@@ -1,13 +1,14 @@
-FROM node:20-alpine
+FROM testlab-react
 
-RUN mkdir -p /sandbox && chown node:node /sandbox
+# Añadir config de Jest para Next.js
+USER root
 WORKDIR /deps
-USER node
-RUN npm init -y && \
-    npm install next jest jest-environment-jsdom @testing-library/react @testing-library/jest-dom @testing-library/user-event typescript -D
+RUN npm install --prefer-offline \
+    @next/jest \
+    jest-environment-jsdom -D 2>/dev/null || true
 
+# Config de Jest para Next.js
+RUN echo '{"transform":{"^.+\\.(js|jsx|ts|tsx)$":["@swc/jest",{}]},"testEnvironment":"jsdom"}' > /deps/jest.config.json
+
+USER node
 WORKDIR /sandbox
-ENV NODE_PATH=/deps/node_modules
-# Mock básico de next/jest si fuera necesario, pero con las dependencias basta para ejecutar configuraciones de Next
-ENV NODE_ENV=test
-CMD ["sh"]
