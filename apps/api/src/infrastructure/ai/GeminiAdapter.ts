@@ -50,30 +50,52 @@ REGLAS CRÍTICAS:
       const response = await result.response;
       const text = response.text().trim();
 
-      // Limpiar posibles bloques markdown si Gemini los incluye por error
-      const cleanedText = text
-        .replace(/^```json/, "")
-        .replace(/```$/, "")
-        .replace(/\\'/g, "'")
+      // Limpiar la respuesta
+      let cleanedText = text
+        .replace(/^```json\s*/i, "")
+        .replace(/```\s*$/i, "")
         .trim();
 
-      try {
-        const parsed = JSON.parse(cleanedText) as AnalysisResult;
-
-        // Fix: convertir \n literales en saltos de línea reales
-        parsed.unitTests = parsed.unitTests.replace(/\\n/g, "\n");
-
-        if (!parsed.unitTests || !parsed.framework) {
-          throw new Error("JSON incompleto");
-        }
-
-        return parsed;
-      } catch (error) {
-        console.error("❌ Error parseando JSON de Gemini:", text);
-        throw new Error("Respuesta de Gemini no es JSON válido o falta información", {
-          cause: error,
-        });
+      // Extraer solo el objeto JSON si hay texto extra
+      const jsonMatch = cleanedText.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        throw new Error("No se encontró JSON en la respuesta");
       }
+      cleanedText = jsonMatch[0];
+
+      // Parsear usando un enfoque más tolerante
+      let parsed: AnalysisResult;
+      try {
+        cleanedText = this.sanitizeJsonString(cleanedText);
+        parsed = JSON.parse(cleanedText);
+      } catch (e) {
+        // Segundo intento: extraer campos manualmente con regex
+        const unitTestsMatch = cleanedText.match(/"unitTests"\s*:\s*"([\s\S]*?)(?<!\\)"/);
+        if (unitTestsMatch) {
+          parsed = {
+            unitTests: unitTestsMatch[1]
+              .replace(/\\n/g, "\n")
+              .replace(/\\'/g, "'")
+              .replace(/\\\\/g, "\\")
+              .replace(/\\"/g, '"'),
+            testSummary: "",
+            framework: "Jest",
+            coverageHints: [],
+          };
+        } else {
+          console.error("❌ Error parseando JSON de Gemini:", text);
+          throw new Error("Respuesta de Gemini no es JSON válido", { cause: e });
+        }
+      }
+
+      if (!parsed.unitTests || !parsed.framework) {
+        throw new Error("JSON incompleto");
+      }
+
+      // Asegurar que los saltos de línea estén bien procesados
+      parsed.unitTests = parsed.unitTests.replace(/\\n/g, "\n");
+
+      return parsed;
     } catch (error) {
       console.error("❌ Error en GeminiAdapter:", error);
       throw new Error(
@@ -81,5 +103,16 @@ REGLAS CRÍTICAS:
         { cause: error }
       );
     }
+  }
+
+  private sanitizeJsonString(text: string): string {
+    // Reemplazar \' por ' (inválido en JSON)
+    // Pero solo fuera de los valores de string ya escapados
+    const controlChars = new RegExp("[\\x00-\\x08\\x0B\\x0C\\x0E-\\x1F]", "g");
+    return text
+      .replace(/\\'/g, "'") // \' → '
+      .replace(/\t/g, "\\t") // tabs sin escapar
+      .replace(/\r/g, "") // carriage returns
+      .replace(controlChars, ""); // control chars inválidos
   }
 }

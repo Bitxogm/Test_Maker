@@ -24,6 +24,7 @@ export default tseslint.config(
       "@typescript-eslint/no-unused-vars": ["warn", { argsIgnorePattern: "^_" }],
       "prefer-const": "error",
       "no-var": "error",
+      "no-control-regex": "off",
     },
   }
 );
