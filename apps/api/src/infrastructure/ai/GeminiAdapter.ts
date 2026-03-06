@@ -54,10 +54,14 @@ REGLAS CRÍTICAS:
       const cleanedText = text
         .replace(/^```json/, "")
         .replace(/```$/, "")
+        .replace(/\\'/g, "'")
         .trim();
 
       try {
         const parsed = JSON.parse(cleanedText) as AnalysisResult;
+
+        // Fix: convertir \n literales en saltos de línea reales
+        parsed.unitTests = parsed.unitTests.replace(/\\n/g, "\n");
 
         if (!parsed.unitTests || !parsed.framework) {
           throw new Error("JSON incompleto");
