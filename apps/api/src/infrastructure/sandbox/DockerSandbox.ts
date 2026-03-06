@@ -101,7 +101,8 @@ export class DockerSandbox {
         return `
           echo '${encodedCode}' | base64 -d > solution.ts
           echo '${encodedTests}' | base64 -d > solution.test.ts
-          /deps/node_modules/.bin/vitest run --globals --reporter=verbose --config /deps/vitest.config.json solution.test.ts
+          cat solution.ts solution.test.ts > combined.test.ts
+          /deps/node_modules/.bin/vitest run --globals --reporter=verbose --config /deps/vitest.config.json combined.test.ts
         `;
       case "python":
         return `
