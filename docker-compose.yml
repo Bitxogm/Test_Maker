@@ -1,0 +1,24 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: testlab-postgres
+    environment:
+      POSTGRES_USER: testlab
+      POSTGRES_PASSWORD: testlab123
+      POSTGRES_DB: testlab
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  mongo:
+    image: mongo:7-jammy
+    container_name: testlab-mongo
+    ports:
+      - "27020:27017"
+    volumes:
+      - mongo_data:/data/db
+
+volumes:
+  postgres_data:
+  mongo_data:

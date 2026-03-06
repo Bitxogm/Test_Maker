@@ -86,7 +86,9 @@ export default function Dashboard() {
             <h2 className="text-neon-cyan font-bold glow-cyan tracking-wider">SOURCE CODE</h2>
             <select
               value={language}
-              onChange={(e) => handleLanguageChange(e.target.value)}
+              onChange={(e) =>
+                handleLanguageChange(e.target.value as "javascript" | "typescript" | "python")
+              }
               className="bg-dark-900 border border-neon-cyan text-neon-cyan text-sm px-3 py-1 outline-none focus:glow-cyan transition-all"
             >
               <option value="javascript">JAVASCRIPT</option>
