@@ -6,6 +6,8 @@ USER node
 RUN npm init -y && \
     npm install jest ts-jest jsdom @testing-library/react @testing-library/jest-dom @testing-library/user-event typescript -D
 
+RUN echo '{"test":{"globals":true,"environment":"jsdom","server":{"host":"127.0.0.1"}}}' > /deps/vitest.config.json
+
 WORKDIR /sandbox
 ENV NODE_PATH=/deps/node_modules
 ENV NODE_ENV=test

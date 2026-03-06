@@ -101,7 +101,7 @@ export class DockerSandbox {
         return `
           echo '${encodedCode}' | base64 -d > solution.ts
           echo '${encodedTests}' | base64 -d > solution.test.ts
-          /deps/node_modules/.bin/vitest run --globals --reporter=verbose solution.test.ts
+          /deps/node_modules/.bin/vitest run --globals --reporter=verbose --config /deps/vitest.config.json solution.test.ts
         `;
       case "python":
         return `
@@ -110,7 +110,7 @@ export class DockerSandbox {
           pytest test_solution.py --cov=solution
         `;
       default:
-        throw new Error(`Entorno no soportado: ${environment}`);
+        throw new Error(`Entorno no soportado: ${environment} `);
     }
   }
 
