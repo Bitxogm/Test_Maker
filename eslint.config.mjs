@@ -25,6 +25,7 @@ export default tseslint.config(
       "prefer-const": "error",
       "no-var": "error",
       "no-control-regex": "off",
+      "@typescript-eslint/no-explicit-any": "off",
     },
   }
 );

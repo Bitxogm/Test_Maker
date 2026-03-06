@@ -8,7 +8,8 @@ export function setupWebSockets(io: Server) {
     socket.on("test:join", ({ sessionId }: { sessionId: string }) => {
       if (sessionId) {
         socket.join(sessionId);
-        console.warn(`[Socket] Cliente ${socket.id} unido a la sesión: ${sessionId}`);
+        console.warn(`[Socket] Cliente ${socket.id} unido a sesión: ${sessionId}`);
+        socket.emit("test:joined", { sessionId }); // ← confirmar al cliente
       }
     });
 

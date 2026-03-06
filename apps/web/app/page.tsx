@@ -35,7 +35,11 @@ export default function Dashboard() {
     }
     setUser(getUser());
 
+    socket.on("connect", () => console.log("🔌 Socket conectado:", socket.id));
+    socket.on("disconnect", () => console.log("❌ Socket desconectado"));
+
     socket.on("test:output", ({ line }: { line: string }) => {
+      console.log("📨 Línea recibida:", line);
       setTerminalOutput((prev) => [...prev, line]);
     });
 
@@ -46,6 +50,8 @@ export default function Dashboard() {
     });
 
     return () => {
+      socket.off("connect");
+      socket.off("disconnect");
       socket.off("test:output");
       socket.off("test:results");
     };
@@ -84,12 +90,31 @@ export default function Dashboard() {
     setIsRunning(true);
     setStatus("running");
     setTerminalOutput([]);
+    setActiveTab("live");
+
+    // Esperar confirmación de join antes de ejecutar
+    console.log("🚀 Uniéndose a sala:", sessionId);
+    await new Promise<void>((resolve) => {
+      socket.emit("test:join", { sessionId });
+      socket.once("test:joined", () => {
+        console.log("✅ Unido a sala correctamente");
+        resolve();
+      });
+      setTimeout(() => {
+        console.warn("⏳ Timeout esperando test:joined, continuando...");
+        resolve();
+      }, 1000); // fallback por si acaso
+    });
+
+    console.log("▶ Ejecutando tests...");
+
     try {
       await runTests(sessionId, language === "python" ? "python" : "node");
-      setActiveTab("live");
+      setStatus("done");
     } catch (error) {
       console.error("Execution failed", error);
       setStatus("idle");
+    } finally {
       setIsRunning(false);
     }
   };
@@ -228,14 +253,15 @@ export default function Dashboard() {
 
         <div className="flex items-center space-x-3">
           <div
-            className={`w-3 h-3 rounded-full ${status === "generating"
-              ? "bg-neon-cyan animate-pulse"
-              : status === "running"
-                ? "bg-neon-green animate-pulse"
-                : status === "done"
-                  ? "bg-neon-purple shadow-[0_0_8px_#bf00ff]"
-                  : "bg-gray-600"
-              }`}
+            className={`w-3 h-3 rounded-full ${
+              status === "generating"
+                ? "bg-neon-cyan animate-pulse"
+                : status === "running"
+                  ? "bg-neon-green animate-pulse"
+                  : status === "done"
+                    ? "bg-neon-purple shadow-[0_0_8px_#bf00ff]"
+                    : "bg-gray-600"
+            }`}
           />
           <span className="text-xs font-bold tracking-widest opacity-70 uppercase">{status}</span>
         </div>
