@@ -1,16 +1,8 @@
 FROM node:20-alpine
-
 RUN mkdir -p /sandbox /deps && chown -R node:node /sandbox /deps
-WORKDIR /sandbox
-
-# Pre-instalar dependencias en /deps para persistencia
 WORKDIR /deps
 USER node
-RUN npm init -y && \
-    npm install jest ts-jest vitest typescript @types/jest -D
-
-RUN echo '{"test":{"globals":true,"environment":"node","server":{"host":"127.0.0.1"}}}' > /deps/vitest.config.json
-
+RUN yarn init -y && yarn add vitest@1.6.0 --dev
 WORKDIR /sandbox
 ENV NODE_PATH=/deps/node_modules
 ENV NODE_ENV=test

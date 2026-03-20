@@ -3,8 +3,9 @@ FROM testlab-react
 # Añadir config de Jest para Next.js
 USER root
 WORKDIR /deps
-RUN npm install --prefer-offline \
+RUN npm install --verbose --prefer-offline \
     @next/jest \
+    vitest@1.6.0 \
     jest-environment-jsdom -D 2>/dev/null || true
 
 # Config de Jest para Next.js

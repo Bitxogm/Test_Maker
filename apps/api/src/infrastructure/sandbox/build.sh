@@ -1,21 +1,13 @@
 #!/bin/bash
-
 echo "🚀 Iniciando construcción de imágenes de TestLab AI Sandbox..."
 
-# Node base
 echo "📦 Building testlab-node..."
-docker build -t testlab-node -f dockerfiles/Dockerfile.node .
+docker build --network host -t testlab-node -f dockerfiles/Dockerfile.node dockerfiles/
 
-# React
 echo "📦 Building testlab-react..."
-docker build -t testlab-react -f dockerfiles/Dockerfile.react .
+docker build --network host -t testlab-react -f dockerfiles/Dockerfile.react dockerfiles/
 
-# Next.js
-echo "📦 Building testlab-nextjs..."
-docker build -t testlab-nextjs -f dockerfiles/Dockerfile.nextjs .
-
-# Python
 echo "📦 Building testlab-python..."
-docker build -t testlab-python -f dockerfiles/Dockerfile.python .
+docker build --network host -t testlab-python -f dockerfiles/Dockerfile.python dockerfiles/
 
 echo "✅ Todas las imágenes construidas correctamente."
