@@ -6,12 +6,13 @@ import {
   SandboxResult,
 } from "../infrastructure/sandbox/DockerSandbox";
 import { TestRunLog } from "../infrastructure/db/mongoose/TestRunLog.schema";
-import { parseJestOutput } from "./utils/parseJestOutput";
+import { parseJestOutput, ParsedTestResult } from "./utils/parseJestOutput";
 
 export interface RunTestsRequest {
   sessionId: string;
   environment: SandboxEnvironment;
   onOutput: (line: string) => void;
+  onComplete?: (result: ParsedTestResult) => void;
 }
 
 export class RunTestsUseCase {
@@ -61,6 +62,10 @@ export class RunTestsUseCase {
 
       // 6. Actualizar status final en PostgreSQL
       await this.testSessionRepository.updateStatus(sessionId, finalStatus);
+
+      if (request.onComplete) {
+        request.onComplete(parsedResult);
+      }
 
       return result;
     } catch (error) {

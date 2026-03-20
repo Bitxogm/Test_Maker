@@ -49,6 +49,9 @@ export function createTestsRouter(io: Server): Router {
         onOutput: (line) => {
           io.to(sessionId).emit("test:output", { line });
         },
+        onComplete: (parsedResult) => {
+          io.to(sessionId).emit("test:complete", parsedResult);
+        },
       });
 
       res.json(result);
