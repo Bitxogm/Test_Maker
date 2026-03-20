@@ -40,9 +40,8 @@ Tu respuesta debe ser EXCLUSIVAMENTE un objeto JSON válido con este formato:
 REGLAS CRÍTICAS:
 - NO incluyas bloques de código markdown (\`\`\`json).
 - NO incluyas texto antes o después del JSON.
-- Los tests deben usar ES Modules (import/export), NUNCA CommonJS (require/module.exports).
-- El código fuente y los tests se ejecutan en el mismo fichero de contexto: NO uses import del fichero solution ni incluyas el código original, escribe solo los tests.
-- NO incluyas import ni require al principio de los tests (vitest globals están disponibles).
+- Para JS/TS: Los tests deben usar ES Modules (NUNCA CommonJS). Como se ejecutan en el mismo contexto, NO uses import del fichero solution ni incluyas el código original (vitest globals están disponibles).
+- Para Python: los tests DEBEN incluir al principio un import explícito de la función original, por ejemplo: \`from solution import nombre_funcion\`.
 - Asegúrate de que el código dentro de "unitTests" tenga los caracteres especiales escapados.
 `;
 

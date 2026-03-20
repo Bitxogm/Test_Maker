@@ -111,7 +111,7 @@ export class DockerSandbox {
         return `
           echo '${encodedCode}' | base64 -d > solution.py
           echo '${encodedTests}' | base64 -d > test_solution.py
-          pytest test_solution.py --cov=solution
+          cd /sandbox && python -m pytest test_solution.py -v --no-header --tb=short
         `;
       default:
         throw new Error(`Entorno no soportado: ${environment} `);
