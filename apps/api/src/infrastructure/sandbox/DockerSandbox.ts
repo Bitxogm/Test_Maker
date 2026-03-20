@@ -31,6 +31,8 @@ export class DockerSandbox {
     // Comando para escribir archivos y ejecutar según entorno
     const cmd = this.getExecutionCommand(environment, code, tests);
 
+    console.log("🐳 TESTS PREVIEW:\n", tests.substring(0, 500));
+
     let container: Docker.Container | undefined;
 
     try {
@@ -40,8 +42,9 @@ export class DockerSandbox {
         HostConfig: {
           Memory: 256 * 1024 * 1024, // 256MB
           NanoCpus: 500000000, // 0.5 CPU
+          NetworkMode: "testlab-isolated",
+          AutoRemove: false,
         },
-        NetworkDisabled: true,
         Labels: { "testlab.session.id": sessionId },
       });
 
@@ -102,7 +105,7 @@ export class DockerSandbox {
           echo '${encodedCode}' | base64 -d > solution.ts
           echo '${encodedTests}' | base64 -d > solution.test.ts
           cat solution.ts solution.test.ts > combined.test.ts
-          /deps/node_modules/.bin/vitest run --globals --reporter=verbose --config /deps/vitest.config.json combined.test.ts
+          /deps/node_modules/.bin/vitest run --globals --reporter=verbose combined.test.ts
         `;
       case "python":
         return `
