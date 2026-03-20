@@ -54,7 +54,7 @@ export class PrismaTestSessionRepository implements ITestSessionRepository {
       create: {
         id: session.id,
         projectId: session.projectId,
-        userId: session.userId,
+        userId: session.userId ?? null,
         originalCode: session.originalCode,
         generatedTests: session.generatedTests,
         status: session.status as unknown as PrismaStatus,

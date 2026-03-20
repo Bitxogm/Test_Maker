@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI, GenerativeModel } from "@google/generative-ai";
+import { GoogleGenerativeAI, GenerativeModel, Content } from "@google/generative-ai";
 import { AIAdapter, AnalysisResult } from "./AIAdapter.interface";
 
 export class GeminiAdapter implements AIAdapter {
@@ -104,6 +104,40 @@ REGLAS CRÍTICAS:
         `Fallo en análisis con Gemini: ${error instanceof Error ? error.message : String(error)}`,
         { cause: error }
       );
+    }
+  }
+
+  async chat(
+    context: string,
+    history: { role: string; content: string }[],
+    message: string
+  ): Promise<string> {
+    const promptContext = `Contexto del Sandbox:\n${context}\n\nActúa como un asistente experto e ingeniero de QA. Ayuda al usuario con su código y resultados de test. Responde de forma concisa.`;
+
+    const formattedHistory = [
+      { role: "user", parts: [{ text: promptContext }] },
+      {
+        role: "model",
+        parts: [{ text: "¡Entendido! Estoy listo para ayudarte con tu código y los resultados." }],
+      },
+      ...history.map(
+        (m): Content => ({
+          role: (m.role === "assistant" ? "model" : "user") as "user" | "model",
+          parts: [{ text: m.content }],
+        })
+      ),
+    ];
+
+    try {
+      const chatSession = this.model.startChat({
+        history: formattedHistory,
+        generationConfig: { temperature: 0.2 },
+      });
+      const result = await chatSession.sendMessage(message);
+      return result.response.text();
+    } catch (error) {
+      console.error("❌ Error en GeminiAdapter chat:", error);
+      throw new Error("Fallo en el chat con Gemini", { cause: error });
     }
   }
 

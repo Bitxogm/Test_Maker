@@ -16,14 +16,14 @@ export const generateTests = async (
   inputLanguage: string,
   outputLanguage: string,
   analysisMode: string,
-  userId: string
+  userId?: string | null
 ): Promise<GenerateTestsResponse> => {
   const response = await api.post("/api/tests/generate", {
     code,
     inputLanguage,
     outputLanguage,
     analysisMode,
-    userId,
+    ...(userId ? { userId } : {}),
   });
   return response.data;
 };
@@ -33,4 +33,26 @@ export const runTests = async (sessionId: string, environment: string): Promise<
     sessionId,
     environment,
   });
+};
+
+export interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export const sendChatMessage = async (
+  code: string,
+  generatedTests: string,
+  terminalOutput: string[],
+  history: ChatMessage[],
+  message: string
+): Promise<string> => {
+  const response = await api.post("/api/chat", {
+    code,
+    generatedTests,
+    terminalOutput,
+    history,
+    message,
+  });
+  return response.data.response;
 };

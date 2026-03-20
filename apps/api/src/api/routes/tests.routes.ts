@@ -10,7 +10,7 @@ const generateTestsSchema = z.object({
   inputLanguage: z.string(),
   outputLanguage: z.string(),
   analysisMode: z.string(),
-  userId: z.string(),
+  userId: z.string().optional().nullable(),
 });
 
 const runTestsSchema = z.object({

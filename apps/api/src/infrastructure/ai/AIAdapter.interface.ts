@@ -12,4 +12,10 @@ export interface AIAdapter {
     outputLanguage: string,
     analysisMode: string
   ): Promise<AnalysisResult>;
+
+  chat(
+    context: string,
+    history: { role: string; content: string }[],
+    message: string
+  ): Promise<string>;
 }

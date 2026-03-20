@@ -35,8 +35,8 @@ model User {
 model TestSession {
   id             String     @id @default(uuid())
   projectId      String?
-  userId         String
-  user           User       @relation(fields: [userId], references: [id])
+  userId         String?
+  user           User?      @relation(fields: [userId], references: [id])
   originalCode   String     @db.Text
   generatedTests String?    @db.Text
   status         TestStatus @default(PENDING)

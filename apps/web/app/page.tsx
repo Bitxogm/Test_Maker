@@ -1,127 +1,87 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
+import React, { useState, useEffect } from "react";
 import Editor from "@monaco-editor/react";
-import AnsiToHtml from "ansi-to-html";
-import { socket } from "@/lib/socket";
-import { generateTests, runTests } from "@/lib/api";
-import { isAuthenticated, getUser } from "@/lib/auth";
-import Header from "./components/Header";
+import {
+  FlaskConical,
+  Terminal as TerminalIcon,
+  Play,
+  Copy,
+  FileUp,
+  Code2,
+  Sparkles,
+  Zap,
+  PieChart,
+} from "lucide-react";
+import { io } from "socket.io-client";
+import { generateTests, runTests, GenerateTestsResponse } from "@/lib/api";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Card } from "@/components/ui/card";
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
+import { AppSidebar } from "@/components/AppSidebar";
+import ChatWindow from "@/components/ChatWindow";
+import { Progress, ProgressTrack, ProgressIndicator } from "@/components/ui/progress";
+import Ansi from "ansi-to-react";
 
-const DEFAULT_CODE = {
-  javascript: `function sum(a, b) {\n  return a + b;\n}`,
-  typescript: `function multiply(a: number, b: number): number {\n  return a * b;\n}`,
-  python: `def greet(name):\n    return f"Hello, {name}!"`,
-};
-
-export default function Dashboard() {
-  const router = useRouter();
-  const [language, setLanguage] = useState<"javascript" | "typescript" | "python">("javascript");
-  const [code, setCode] = useState(DEFAULT_CODE.javascript);
-  const [generatedTests, setGeneratedTests] = useState("");
-  const [sessionId, setSessionId] = useState("");
-  const [activeTab, setActiveTab] = useState<"tests" | "live" | "coverage">("tests");
-  const [terminalOutput, setTerminalOutput] = useState<string[]>([]);
+export default function TestLabPage() {
+  const [code, setCode] = useState("// Escribe o carga tu código aquí...");
+  const [language, setLanguage] = useState("javascript");
   const [isGenerating, setIsGenerating] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
-  const [coverage, setCoverage] = useState({
-    total: 0,
-    passed: 0,
-    failed: 0,
-    skipped: 0,
-    coverage: 0,
-  });
+  const [generatedTests, setGeneratedTests] = useState("");
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [terminalOutput, setTerminalOutput] = useState<string[]>([]);
+  const [coverage, setCoverage] = useState<Record<string, number> | null>(null);
+  const [activeTab, setActiveTab] = useState("tests");
   const [copiedTests, setCopiedTests] = useState(false);
   const [copiedOutput, setCopiedOutput] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const ansiConverter = new AnsiToHtml({
-    fg: "#fff",
-    bg: "#000",
-    newline: true,
-    escapeXML: true,
-  });
-  const [status, setStatus] = useState<"idle" | "generating" | "running" | "done">("idle");
-  const [user, setUser] = useState<any>(null);
+
+  const socketRef = React.useRef<ReturnType<typeof io> | null>(null);
 
   useEffect(() => {
-    if (!isAuthenticated()) {
-      router.push("/login");
-      return;
-    }
-    setUser(getUser());
+    const socket = io("http://localhost:3001");
+    socketRef.current = socket;
 
-    socket.on("connect", () => console.log("🔌 Socket conectado:", socket.id));
-    socket.on("disconnect", () => console.log("❌ Socket desconectado"));
-
-    socket.on("test:output", ({ line }: { line: string }) => {
-      console.log("📨 Línea recibida:", line);
-      setTerminalOutput((prev) => [...prev, line]);
+    socket.on("test:output", (data: { line: string }) => {
+      setTerminalOutput((prev) => [...prev, data.line]);
     });
 
-    socket.on("test:complete", (parsedResult: any) => {
-      if (parsedResult?.summary) {
-        setCoverage({
-          total: parsedResult.summary.total || 0,
-          passed: parsedResult.summary.passed || 0,
-          failed: parsedResult.summary.failed || 0,
-          skipped: parsedResult.summary.skipped || 0,
-          coverage: parsedResult.summary.coverage || 0,
-        });
-      }
-      setStatus("done");
+    socket.on("test:complete", (data) => {
+      if (data.coverage) setCoverage(data.coverage);
       setIsRunning(false);
+      setTerminalOutput((prev) => [...prev, "\n✓ Ejecución completada."]);
     });
 
     return () => {
-      socket.off("connect");
-      socket.off("disconnect");
-      socket.off("test:output");
-      socket.off("test:complete");
+      socket.disconnect();
     };
-  }, [router]);
-
-  const handleLanguageChange = (newLang: "javascript" | "typescript" | "python") => {
-    setLanguage(newLang);
-    setCode(DEFAULT_CODE[newLang as keyof typeof DEFAULT_CODE]);
-  };
-
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const content = event.target?.result as string;
-      if (content) setCode(content);
-
-      const ext = file.name.split(".").pop()?.toLowerCase();
-      if (ext === "py") setLanguage("python");
-      else if (ext === "ts" || ext === "tsx") setLanguage("typescript");
-      else setLanguage("javascript");
-    };
-    reader.readAsText(file);
-    e.target.value = "";
-  };
+  }, []);
 
   const handleGenerate = async () => {
-    if (!user) return;
     setIsGenerating(true);
-    setStatus("generating");
+    setTerminalOutput(["[IA] Analizando código...", "[IA] Generando suite de pruebas..."]);
     try {
-      const response = await generateTests(
+      const response: GenerateTestsResponse = await generateTests(
         code,
         language,
         language,
-        "comprehensive",
-        user.id || user.sub || "anonymous"
+        "advanced"
       );
       setGeneratedTests(response.unitTests);
       setSessionId(response.sessionId);
-      setStatus("idle");
-    } catch (error) {
-      console.error("Generation failed", error);
-      setStatus("idle");
+      setTerminalOutput((prev) => [...prev, "✓ Tests generados correctamente."]);
+      setActiveTab("tests");
+    } catch {
+      setTerminalOutput((prev) => [...prev, "⨯ Error generando tests."]);
     } finally {
       setIsGenerating(false);
     }
@@ -130,248 +90,330 @@ export default function Dashboard() {
   const handleRun = async () => {
     if (!sessionId) return;
     setIsRunning(true);
-    setStatus("running");
-    setTerminalOutput([]);
+    setTerminalOutput([
+      "[RUN] Iniciando entorno de pruebas...",
+      "[RUN] Ejecutando sandbox Docker...",
+    ]);
     setActiveTab("live");
 
-    // Esperar confirmación de join antes de ejecutar
-    console.log("🚀 Uniéndose a sala:", sessionId);
-    await new Promise<void>((resolve) => {
-      socket.emit("test:join", { sessionId });
-      socket.once("test:joined", () => {
-        console.log("✅ Unido a sala correctamente");
-        resolve();
-      });
-      setTimeout(() => {
-        console.warn("⏳ Timeout esperando test:joined, continuando...");
-        resolve();
-      }, 1000); // fallback por si acaso
-    });
-
-    console.log("▶ Ejecutando tests...");
+    // Join the session room so socket events reach this client
+    if (socketRef.current) {
+      socketRef.current.emit("test:join", { sessionId });
+    }
 
     try {
       await runTests(sessionId, language === "python" ? "python" : "node");
-      setStatus("done");
-    } catch (error) {
-      console.error("Execution failed", error);
-      setStatus("idle");
-    } finally {
+    } catch {
+      setTerminalOutput((prev) => [...prev, "⨯ Error de ejecución."]);
       setIsRunning(false);
     }
   };
 
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const content = ev.target?.result as string;
+      setCode(content);
+      const ext = file.name.split(".").pop();
+      if (ext === "js" || ext === "ts") setLanguage("javascript");
+      if (ext === "py") setLanguage("python");
+    };
+    reader.readAsText(file);
+  };
+
+  const copyToClipboard = (text: string, type: "tests" | "output") => {
+    navigator.clipboard.writeText(text);
+    if (type === "tests") {
+      setCopiedTests(true);
+      setTimeout(() => setCopiedTests(false), 2000);
+    } else {
+      setCopiedOutput(true);
+      setTimeout(() => setCopiedOutput(false), 2000);
+    }
+  };
+
+  const onLanguageChange = (val: string | null) => {
+    if (val) setLanguage(val);
+  };
+
   return (
-    <main className="flex flex-col h-screen bg-dark-900 text-white font-sans overflow-hidden">
-      <Header />
-      {/* Main Content */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Left Panel - Editor */}
-        <div className="w-1/2 flex flex-col border-r border-dark-700">
-          <header className="h-14 flex items-center justify-between px-6 bg-dark-800 border-b border-dark-700">
-            <h2 className="text-neon-cyan font-bold glow-cyan tracking-wider">SOURCE CODE</h2>
-            <div className="flex items-center space-x-4">
-              <input
-                type="file"
-                ref={fileInputRef}
-                onChange={handleFileUpload}
-                accept=".js,.ts,.py"
-                className="hidden"
-              />
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="px-3 py-1 border border-neon-purple text-neon-purple text-sm hover:bg-neon-purple/10 transition-all font-bold"
-              >
-                📂 Cargar Archivo
-              </button>
-              <select
-                value={language}
-                onChange={(e) =>
-                  handleLanguageChange(e.target.value as "javascript" | "typescript" | "python")
-                }
-                className="bg-dark-900 border border-neon-cyan text-neon-cyan text-sm px-3 py-1 outline-none focus:glow-cyan transition-all"
-              >
-                <option value="javascript">JAVASCRIPT</option>
-                <option value="typescript">TYPESCRIPT</option>
-                <option value="python">PYTHON</option>
-              </select>
-            </div>
-          </header>
-          <div className="flex-1">
-            <Editor
-              height="calc(100vh - 120px)"
-              language={language}
-              theme="vs-dark"
-              value={code}
-              onChange={(value) => setCode(value || "")}
-              options={{
-                fontSize: 14,
-                minimap: { enabled: false },
-                scrollBeyondLastLine: false,
-                automaticLayout: true,
-                padding: { top: 10 },
-              }}
-            />
-          </div>
-        </div>
+    <div className="flex h-screen w-full bg-dark-900 text-gray-100 overflow-hidden font-sans">
+      <AppSidebar />
 
-        {/* Right Panel - Results */}
-        <div className="w-1/2 flex flex-col bg-dark-800">
-          <header className="h-14 flex bg-dark-700 border-b border-dark-600">
-            <button
-              onClick={() => setActiveTab("tests")}
-              className={`flex-1 text-sm font-bold tracking-widest transition-all ${activeTab === "tests" ? "text-neon-purple glow-purple border-b-2 border-neon-purple bg-dark-600" : "text-gray-400 hover:text-white"}`}
-            >
-              TESTS GENERADOS
-            </button>
-            <button
-              onClick={() => setActiveTab("live")}
-              className={`flex-1 text-sm font-bold tracking-widest transition-all ${activeTab === "live" ? "text-neon-green glow-green border-b-2 border-neon-green bg-dark-600" : "text-gray-400 hover:text-white"}`}
-            >
-              EJECUCIÓN EN VIVO
-            </button>
-            <button
-              onClick={() => setActiveTab("coverage")}
-              className={`flex-1 text-sm font-bold tracking-widest transition-all ${activeTab === "coverage" ? "text-neon-yellow border-b-2 border-neon-yellow bg-dark-600" : "text-gray-400 hover:text-white"}`}
-            >
-              COVERAGE
-            </button>
-          </header>
+      <main className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
+        <header className="h-14 border-b border-dark-700 bg-dark-800 flex items-center justify-between px-6 shrink-0 z-10">
+          <div className="flex items-center gap-4">
+            <h1 className="text-sm font-bold tracking-widest text-white flex items-center gap-2">
+              PROYECTO: <span className="text-neon-cyan">SANDBOX_V1</span>
+            </h1>
+            <div className="h-4 w-px bg-dark-600" />
+            <div className="flex items-center gap-2">
+              <Select value={language} onValueChange={onLanguageChange}>
+                <SelectTrigger className="w-32 h-8 bg-dark-900 border-dark-600 text-[11px] font-bold uppercase">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-dark-800 border-dark-600">
+                  <SelectItem value="javascript">JAVASCRIPT</SelectItem>
+                  <SelectItem value="python">PYTHON</SelectItem>
+                </SelectContent>
+              </Select>
 
-          <div className="flex-1 overflow-auto p-4">
-            {activeTab === "tests" && (
-              <div className="h-full relative">
-                {generatedTests && (
-                  <button
-                    onClick={() => {
-                      navigator.clipboard.writeText(generatedTests);
-                      setCopiedTests(true);
-                      setTimeout(() => setCopiedTests(false), 2000);
-                    }}
-                    className="absolute top-2 right-4 z-10 px-2 py-1 text-xs font-bold border border-neon-cyan text-neon-cyan bg-dark-900/80 hover:bg-neon-cyan/10 transition-all"
-                  >
-                    {copiedTests ? "✓ COPIADO" : "📋 COPIAR"}
-                  </button>
-                )}
-                <Editor
-                  height="100%"
-                  language={language}
-                  theme="vs-dark"
-                  value={generatedTests}
-                  options={{
-                    readOnly: true,
-                    fontSize: 14,
-                    minimap: { enabled: false },
-                    automaticLayout: true,
-                  }}
+              <div className="relative">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 border-dark-600 text-[11px] font-bold uppercase"
+                  onClick={() =>
+                    (document.getElementById("file-upload") as HTMLInputElement)?.click()
+                  }
+                >
+                  <FileUp className="w-3 h-3 mr-2" />
+                  Cargar Archivo
+                </Button>
+                <input
+                  id="file-upload"
+                  type="file"
+                  className="hidden"
+                  accept=".js,.ts,.py"
+                  onChange={handleFileUpload}
                 />
               </div>
-            )}
-            {activeTab === "live" && (
-              <div className="h-full relative bg-black font-mono text-neon-green text-sm overflow-hidden flex flex-col">
-                {terminalOutput.length > 0 && (
-                  <button
-                    onClick={() => {
-                      navigator.clipboard.writeText(terminalOutput.join("\n"));
-                      setCopiedOutput(true);
-                      setTimeout(() => setCopiedOutput(false), 2000);
-                    }}
-                    className="absolute top-2 right-4 z-10 px-2 py-1 text-xs font-bold border border-neon-cyan text-neon-cyan bg-dark-900/80 hover:bg-neon-cyan/10 transition-all"
-                  >
-                    {copiedOutput ? "✓ COPIADO" : "📋 COPIAR"}
-                  </button>
-                )}
-                <div className="flex-1 overflow-auto custom-scrollbar p-4">
-                  {terminalOutput.length === 0 && (
-                    <p className="opacity-50 italic">{"> Waiting for execution..."}</p>
-                  )}
-                  {terminalOutput.map((line, i) => (
-                    <div
-                      key={i}
-                      className="mb-1 leading-relaxed"
-                      dangerouslySetInnerHTML={{ __html: ansiConverter.toHtml(line) }}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-            {activeTab === "coverage" && (
-              <div className="h-full flex flex-col p-8">
-                <div className="flex items-center justify-around mb-12">
-                  <div className="text-center">
-                    <p className="text-5xl font-bold text-neon-green glow-green mb-2">
-                      {coverage.passed}
-                    </p>
-                    <p className="text-xs tracking-widest opacity-70">PASSED</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-5xl font-bold text-neon-pink mb-2">{coverage.failed}</p>
-                    <p className="text-xs tracking-widest opacity-70">FAILED</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-5xl font-bold text-neon-yellow mb-2">{coverage.skipped}</p>
-                    <p className="text-xs tracking-widest opacity-70">SKIPPED</p>
-                  </div>
-                </div>
-
-                {coverage.total > 0 && (
-                  <div className="mt-auto mb-8 px-4">
-                    <div className="flex justify-between text-sm mb-2 font-bold tracking-widest">
-                      <span className="text-neon-green">PROGRESS</span>
-                      <span className="text-neon-cyan">
-                        {coverage.passed} / {coverage.total} TESTS
-                      </span>
-                    </div>
-                    <div className="h-4 w-full bg-dark-700 overflow-hidden border border-dark-600">
-                      <div
-                        className="h-full bg-neon-green glow-green transition-all duration-1000 ease-out"
-                        style={{
-                          width: `${Math.round((coverage.passed / coverage.total) * 100)}%`,
-                        }}
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
+            </div>
           </div>
-        </div>
-      </div>
 
-      {/* Bottom Bar */}
-      <footer className="h-16 bg-dark-900 border-t border-dark-700 px-6 flex items-center justify-between">
-        <div className="flex items-center space-x-6">
-          <button
-            onClick={handleGenerate}
-            disabled={isGenerating}
-            className="px-6 py-2 border border-neon-cyan text-neon-cyan font-bold tracking-widest hover:bg-neon-cyan/10 hover:glow-cyan transition-all disabled:opacity-50 disabled:pointer-events-none"
-          >
-            {isGenerating ? "GENERANDO..." : "⚡ GENERAR TESTS"}
-          </button>
-          <button
-            onClick={handleRun}
-            disabled={!generatedTests || isRunning}
-            className="px-6 py-2 border border-neon-green text-neon-green font-bold tracking-widest hover:bg-neon-green/10 hover:glow-green transition-all disabled:opacity-30 disabled:pointer-events-none disabled:border-gray-600 disabled:text-gray-600"
-          >
-            {isRunning ? "EJECUTANDO..." : "▶ EJECUTAR"}
-          </button>
-        </div>
+          <div className="flex items-center gap-3">
+            <Button
+              onClick={handleGenerate}
+              disabled={isGenerating}
+              className="h-8 bg-neon-purple text-white hover:bg-neon-purple/80 text-[11px] font-bold uppercase shadow-[0_0_10px_rgba(191,0,255,0.3)]"
+            >
+              {isGenerating ? (
+                <Zap className="w-3 h-3 mr-2 animate-spin" />
+              ) : (
+                <Sparkles className="w-3 h-3 mr-2" />
+              )}
+              Generar Tests
+            </Button>
+            <Button
+              onClick={handleRun}
+              disabled={isRunning || !generatedTests}
+              className="h-8 bg-neon-cyan text-black hover:bg-neon-cyan/80 text-[11px] font-bold uppercase shadow-[0_0_10px_rgba(0,255,245,0.3)]"
+            >
+              {isRunning ? (
+                <Play className="w-3 h-3 mr-2 animate-pulse" />
+              ) : (
+                <Play className="w-3 h-3 mr-2" />
+              )}
+              Ejecutar
+            </Button>
+          </div>
+        </header>
+        <ResizablePanelGroup orientation="horizontal" className="flex-1 min-h-0">
+          <ResizablePanel defaultSize={45} minSize={30} className="flex flex-col bg-black/20">
+            <header className="h-10 flex items-center justify-between px-4 border-b border-dark-800 bg-dark-800/50 shrink-0">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 flex items-center">
+                <Code2 className="w-3 h-3 mr-2" /> Editor de Código
+              </span>
+            </header>
+            <div className="flex-1 relative">
+              <Editor
+                height="100%"
+                theme="vs-dark"
+                language={language}
+                value={code}
+                onChange={(val) => setCode(val || "")}
+                options={{
+                  fontSize: 14,
+                  minimap: { enabled: false },
+                  fontFamily: "var(--font-geist-mono)",
+                  padding: { top: 20 },
+                  scrollBeyondLastLine: false,
+                }}
+              />
+            </div>
+          </ResizablePanel>
 
-        <div className="flex items-center space-x-3">
-          <div
-            className={`w-3 h-3 rounded-full ${
-              status === "generating"
-                ? "bg-neon-cyan animate-pulse"
-                : status === "running"
-                  ? "bg-neon-green animate-pulse"
-                  : status === "done"
-                    ? "bg-neon-purple shadow-[0_0_8px_#bf00ff]"
-                    : "bg-gray-600"
-            }`}
+          <ResizableHandle
+            withHandle
+            className="bg-dark-700 w-1.5 hover:bg-neon-cyan/50 transition-colors"
           />
-          <span className="text-xs font-bold tracking-widest opacity-70 uppercase">{status}</span>
-        </div>
-      </footer>
-    </main>
+
+          <ResizablePanel defaultSize={35} minSize={25} className="flex flex-col">
+            <Tabs
+              value={activeTab}
+              onValueChange={(val) => setActiveTab(val)}
+              className="flex-1 flex flex-col min-h-0"
+            >
+              <header className="h-10 border-b border-dark-800 bg-dark-800/50 flex items-center shrink-0">
+                <TabsList className="bg-transparent border-none p-0 h-full w-full justify-start rounded-none">
+                  <TabsTrigger
+                    value="tests"
+                    className="h-full rounded-none px-4 text-[10px] font-bold uppercase border-b-2 border-transparent data-[state=active]:border-neon-purple data-[state=active]:bg-neon-purple/10 data-[state=active]:text-neon-purple"
+                  >
+                    <FlaskConical className="w-3 h-3 mr-2" /> Tests
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="live"
+                    className="h-full rounded-none px-4 text-[10px] font-bold uppercase border-b-2 border-transparent data-[state=active]:border-neon-cyan data-[state=active]:bg-neon-cyan/10 data-[state=active]:text-neon-cyan"
+                  >
+                    <TerminalIcon className="w-3 h-3 mr-2" /> Terminal
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="coverage"
+                    className="h-full rounded-none px-4 text-[10px] font-bold uppercase border-b-2 border-transparent data-[state=active]:border-neon-green data-[state=active]:bg-neon-green/10 data-[state=active]:text-neon-green"
+                  >
+                    <PieChart className="w-3 h-3 mr-2" /> Cobertura
+                  </TabsTrigger>
+                </TabsList>
+              </header>
+
+              <div className="flex-1 overflow-hidden relative">
+                <TabsContent value="tests" className="h-full m-0 p-0 relative">
+                  {generatedTests && (
+                    <Button
+                      onClick={() => copyToClipboard(generatedTests, "tests")}
+                      className="absolute top-4 right-4 z-20 h-7 bg-dark-800/80 border border-neon-cyan/50 text-neon-cyan text-[10px] font-bold hover:bg-neon-cyan/20"
+                    >
+                      {copiedTests ? (
+                        "✓ COPIADO"
+                      ) : (
+                        <>
+                          <Copy className="w-3 h-3 mr-2" /> COPIAR
+                        </>
+                      )}
+                    </Button>
+                  )}
+                  <ScrollArea className="h-full w-full bg-black/40">
+                    <pre className="p-6 text-xs font-mono text-gray-300 leading-relaxed whitespace-pre-wrap">
+                      {generatedTests || "// Los tests generados aparecerán aquí..."}
+                    </pre>
+                  </ScrollArea>
+                </TabsContent>
+
+                <TabsContent value="live" className="h-full m-0 p-0 overflow-hidden bg-dark-950">
+                  {terminalOutput.length > 0 && (
+                    <Button
+                      onClick={() => copyToClipboard(terminalOutput.join("\n"), "output")}
+                      className="absolute top-4 right-4 z-20 h-7 bg-dark-800/80 border border-neon-cyan/30 text-neon-cyan text-[10px] font-bold"
+                    >
+                      {copiedOutput ? (
+                        "✓ COPIADO"
+                      ) : (
+                        <>
+                          <Copy className="w-3 h-3 mr-2" /> COPIAR
+                        </>
+                      )}
+                    </Button>
+                  )}
+                  <ScrollArea className="h-full w-full p-4">
+                    <div className="font-mono text-[11px] space-y-1">
+                      {terminalOutput.map((line, i) => (
+                        <div key={i} className="flex gap-2">
+                          <span className="opacity-20 select-none">[{i + 1}]</span>
+                          <Ansi useClasses>{line}</Ansi>
+                        </div>
+                      ))}
+                      {isRunning && <div className="flex animate-pulse text-neon-cyan ml-6">_</div>}
+                    </div>
+                  </ScrollArea>
+                </TabsContent>
+
+                <TabsContent value="coverage" className="h-full m-0 p-6 bg-dark-900/50">
+                  {coverage ? (
+                    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2">
+                      <div className="grid grid-cols-2 gap-4">
+                        {[
+                          {
+                            label: "SENTENCIAS",
+                            value: coverage.statements,
+                            color: "text-neon-cyan",
+                            glow: "glow-cyan",
+                          },
+                          {
+                            label: "RAMAS",
+                            value: coverage.branches,
+                            color: "text-neon-purple",
+                            glow: "glow-purple",
+                          },
+                          {
+                            label: "FUNCIONES",
+                            value: coverage.functions,
+                            color: "text-neon-green",
+                            glow: "glow-green",
+                          },
+                          {
+                            label: "LÍNEAS",
+                            value: coverage.lines,
+                            color: "text-neon-yellow",
+                            glow: "glow-yellow",
+                          },
+                        ].map((stat) => (
+                          <Card
+                            key={stat.label}
+                            className="p-4 bg-dark-800/50 border-dark-700 shadow-lg"
+                          >
+                            <h4 className="text-[10px] font-bold text-gray-500 tracking-widest uppercase mb-1">
+                              {stat.label}
+                            </h4>
+                            <div className="flex items-end justify-between">
+                              <span className={`text-2xl font-bold ${stat.color} ${stat.glow}`}>
+                                {stat.value}%
+                              </span>
+                              <div className="w-16 h-1 bg-dark-700 rounded-full overflow-hidden">
+                                <div
+                                  className={`h-full bg-current ${stat.color} transition-all duration-1000`}
+                                  style={{ width: `${stat.value}%` }}
+                                />
+                              </div>
+                            </div>
+                          </Card>
+                        ))}
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-[11px] font-bold text-gray-400">
+                          <span>COBERTURA TOTAL</span>
+                          <span className="text-white">{coverage.statements}%</span>
+                        </div>
+                        <Progress value={coverage.statements || 0}>
+                          <ProgressTrack className="h-1.5 bg-dark-700 shadow-[0_0_5px_rgba(0,255,245,0.2)]">
+                            <ProgressIndicator
+                              className={
+                                (coverage.statements || 0) > 80 ? "bg-neon-green" : "bg-neon-cyan"
+                              }
+                            />
+                          </ProgressTrack>
+                        </Progress>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="h-full flex flex-col items-center justify-center text-center opacity-30 space-y-4">
+                      <PieChart className="w-12 h-12" />
+                      <p className="text-xs max-w-[200px]">
+                        Ejecuta los tests para ver las estadísticas detalladas de cobertura.
+                      </p>
+                    </div>
+                  )}
+                </TabsContent>
+              </div>
+            </Tabs>
+          </ResizablePanel>
+
+          <ResizableHandle
+            withHandle
+            className="bg-dark-700 w-1.5 hover:bg-neon-cyan/50 transition-colors"
+          />
+
+          <ResizablePanel defaultSize={20} minSize={15} className="flex flex-col">
+            <ChatWindow
+              code={code}
+              generatedTests={generatedTests}
+              terminalOutput={terminalOutput}
+            />
+          </ResizablePanel>
+        </ResizablePanelGroup>
+      </main>
+    </div>
   );
 }

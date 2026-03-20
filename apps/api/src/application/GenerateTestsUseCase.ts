@@ -8,7 +8,7 @@ export interface GenerateTestsRequest {
   inputLanguage: string;
   outputLanguage: string;
   analysisMode: string;
-  userId: string;
+  userId?: string | null;
 }
 
 export interface GenerateTestsResponse {

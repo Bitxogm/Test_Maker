@@ -9,7 +9,7 @@ export enum TestSessionStatus {
 export interface TestSessionProps {
   id: string;
   projectId: string;
-  userId: string;
+  userId?: string | null;
   originalCode: string;
   generatedTests?: string;
   status: TestSessionStatus;
@@ -23,7 +23,7 @@ export interface TestSessionProps {
 export class TestSession {
   public readonly id: string;
   public readonly projectId: string;
-  public readonly userId: string;
+  public readonly userId?: string | null;
   public readonly originalCode: string;
   public readonly generatedTests?: string;
   public readonly status: TestSessionStatus;
