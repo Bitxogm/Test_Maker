@@ -40,9 +40,10 @@ Tu respuesta debe ser EXCLUSIVAMENTE un objeto JSON válido con este formato:
 REGLAS CRÍTICAS:
 - NO incluyas bloques de código markdown (\`\`\`json).
 - NO incluyas texto antes o después del JSON.
-- Para JS/TS: Los tests deben usar ES Modules (NUNCA CommonJS). Como se ejecutan en el mismo contexto, NO uses import del fichero solution ni incluyas el código original (vitest globals están disponibles).
+- Para JS/TS: Los tests deben usar ES Modules (NUNCA CommonJS).
+- IMPORTANTE (JS/TS): El código de la solución y los tests se ejecutan en el mismo ámbito (archivo unificado). NUNCA vuelvas a declarar clases, funciones o variables que ya existan en la solución. Asume que todo lo definido en la solución ya está disponible globalmente. NO uses import del fichero \`solution\`.
 - Para Python: los tests DEBEN incluir al principio un import explícito de la función original, por ejemplo: \`from solution import nombre_funcion\`.
-- Asegúrate de que el código dentro de "unitTests" tenga los caracteres especiales escapados.
+- El código dentro de "unitTests" debe ser una cadena JSON válida con caracteres de escape correctos (especialmente comillas y saltos de línea).
 `;
 
     const prompt = `${instruction}\n\nCódigo a procesar:\n\`\`\`${inputLanguage}\n${code}\n\`\`\``;
@@ -70,23 +71,17 @@ REGLAS CRÍTICAS:
       try {
         cleanedText = this.sanitizeJsonString(cleanedText);
         parsed = JSON.parse(cleanedText);
-      } catch (e) {
-        // Segundo intento: extraer campos manualmente con regex
-        const unitTestsMatch = cleanedText.match(/"unitTests"\s*:\s*"([\s\S]*?)(?<!\\)"/);
-        if (unitTestsMatch) {
-          parsed = {
-            unitTests: unitTestsMatch[1]
-              .replace(/\\n/g, "\n")
-              .replace(/\\'/g, "'")
-              .replace(/\\\\/g, "\\")
-              .replace(/\\"/g, '"'),
-            testSummary: "",
-            framework: "Jest",
-            coverageHints: [],
-          };
-        } else {
-          console.error("❌ Error parseando JSON de Gemini:", text);
-          throw new Error("Respuesta de Gemini no es JSON válido", { cause: e });
+      } catch {
+        // Segundo intento: Limpieza más agresiva de caracteres de control
+        console.warn("⚠️ Fallo primer intento de parseo JSON, intentando limpieza agresiva...");
+        try {
+          cleanedText = cleanedText
+            .replace(/[\u0000-\u001F\u007F-\u009F]/g, "") // Eliminar caracteres de control no imprimibles
+            .replace(/\\'/g, "'");
+          parsed = JSON.parse(cleanedText);
+        } catch (e2) {
+          console.error("❌ Error irreversible parseando JSON de Gemini:", cleanedText);
+          throw new Error("Respuesta de Gemini no es JSON válido", { cause: e2 });
         }
       }
 
@@ -114,12 +109,12 @@ REGLAS CRÍTICAS:
   ): Promise<string> {
     const promptContext = `Contexto del Sandbox:\n${context}\n\nActúa como un asistente experto e ingeniero de QA. Ayuda al usuario con su código y resultados de test. Responde de forma concisa.`;
 
-    const formattedHistory = [
-      { role: "user", parts: [{ text: promptContext }] },
+    const formattedHistory: Content[] = [
+      { role: "user", parts: [{ text: promptContext }] } as Content,
       {
         role: "model",
         parts: [{ text: "¡Entendido! Estoy listo para ayudarte con tu código y los resultados." }],
-      },
+      } as Content,
       ...history.map(
         (m): Content => ({
           role: (m.role === "assistant" ? "model" : "user") as "user" | "model",

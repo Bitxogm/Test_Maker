@@ -14,45 +14,54 @@ dotenv.config();
 
 // ── Conexión a MongoDB ─────────────────────────────────────────────
 const MONGODB_URI = process.env.MONGODB_URI || "mongodb://localhost:27017/testlab";
-mongoose
-  .connect(MONGODB_URI)
-  .then(() => console.warn("📦 MongoDB conectado"))
-  .catch((err) => console.error("❌ Error conectando a MongoDB:", err));
 
-const app = express();
-const httpServer = createServer(app);
+async function startServer() {
+  try {
+    console.warn(`⏳ Conectando a MongoDB en ${MONGODB_URI}...`);
+    await mongoose.connect(MONGODB_URI);
+    console.warn("📦 MongoDB conectado con éxito");
 
-// ── Socket.io ─────────────────────────────────────────────────────
-const io = new Server(httpServer, {
-  cors: {
-    origin: process.env.FRONTEND_URL || "http://localhost:3000",
-    methods: ["GET", "POST"],
-  },
-});
+    const app = express();
+    const httpServer = createServer(app);
 
-// ── Middlewares globales ───────────────────────────────────────────
-app.use(helmet());
-app.use(cors({ origin: process.env.FRONTEND_URL || "http://localhost:3000" }));
-app.use(morgan("dev"));
-app.use(express.json({ limit: "1mb" }));
-app.use(express.urlencoded({ extended: true }));
+    // ── Socket.io ─────────────────────────────────────────────────────
+    const io = new Server(httpServer, {
+      cors: {
+        origin: process.env.FRONTEND_URL || "http://localhost:3000",
+        methods: ["GET", "POST"],
+      },
+    });
 
-// ── Rutas ─────────────────────────────────────────────────────────
-app.use("/api", createApiRouter(io));
+    // ── Middlewares globales ───────────────────────────────────────────
+    app.use(helmet());
+    app.use(cors({ origin: process.env.FRONTEND_URL || "http://localhost:3000" }));
+    app.use(morgan("dev"));
+    app.use(express.json({ limit: "1mb" }));
+    app.use(express.urlencoded({ extended: true }));
 
-// Health check
-app.get("/health", (_req, res) => {
-  res.json({ status: "ok", timestamp: new Date().toISOString() });
-});
+    // ── Rutas ─────────────────────────────────────────────────────────
+    app.use("/api", createApiRouter(io));
 
-// ── WebSockets ────────────────────────────────────────────────────
-setupWebSockets(io);
+    // Health check
+    app.get("/health", (_req, res) => {
+      res.json({ status: "ok", timestamp: new Date().toISOString() });
+    });
 
-// ── Arrancar servidor ─────────────────────────────────────────────
-const PORT = process.env.PORT || 3001;
+    // ── WebSockets ────────────────────────────────────────────────────
+    setupWebSockets(io);
 
-httpServer.listen(PORT, () => {
-  console.warn(`🚀 API corriendo en http://localhost:${PORT}`);
-  console.warn(`🔌 WebSockets listos`);
-  console.warn(`🌍 Entorno: ${process.env.NODE_ENV || "development"}`);
-});
+    // ── Arrancar servidor ─────────────────────────────────────────────
+    const PORT = process.env.PORT || 3001;
+
+    httpServer.listen(PORT, () => {
+      console.warn(`🚀 API corriendo en http://localhost:${PORT}`);
+      console.warn(`🔌 WebSockets listos`);
+      console.warn(`🌍 Entorno: ${process.env.NODE_ENV || "development"}`);
+    });
+  } catch (err) {
+    console.error("❌ Error fatal al iniciar el servidor:", err);
+    process.exit(1);
+  }
+}
+
+startServer();
