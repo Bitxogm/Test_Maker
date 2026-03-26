@@ -94,6 +94,7 @@ const SAFE_LINE_PATTERNS = [
   /\/\/ .*password/i, // inline comments mentioning password
   /passwordHash/, // field names like passwordHash
   /setPassword|getPassword|updatePassword|handlePassword|onChange.*password|onPassword/i,
+  /\$\{[A-Z0-9_]+:-[^}]+\}/, // docker-compose/env interpolation defaults (${VAR:-default})
 ];
 
 async function main() {
