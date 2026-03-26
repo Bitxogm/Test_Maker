@@ -3,13 +3,18 @@ services:
     image: postgres:16-alpine
     container_name: testlab-postgres
     environment:
-      POSTGRES_USER: testlab
-      POSTGRES_PASSWORD: testlab123
-      POSTGRES_DB: testlab
+      POSTGRES_USER: ${POSTGRES_USER:-testlab}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-testlab123}
+      POSTGRES_DB: ${POSTGRES_DB:-testlab}
     ports:
       - "5434:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-testlab}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   mongo:
     image: mongo:7-jammy
@@ -18,7 +23,57 @@ services:
       - "27020:27017"
     volumes:
       - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    container_name: testlab-api
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-testlab}:${POSTGRES_PASSWORD:-testlab123}@postgres:5432/${POSTGRES_DB:-testlab}
+      MONGODB_URI: mongodb://mongo:27017/testlab
+      NODE_ENV: production
+    ports:
+      - "3001:3001"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - default
+      - testlab-isolated
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
+    restart: unless-stopped
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001}
+    container_name: testlab-web
+    env_file: .env
+    environment:
+      PORT: 3000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+    restart: unless-stopped
 
 volumes:
   postgres_data:
   mongo_data:
+
+networks:
+  default:
+    name: testlab-default
+  testlab-isolated:
+    name: testlab-isolated

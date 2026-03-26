@@ -404,7 +404,7 @@ export default function App() {
   return (
     <div className="flex h-screen w-full bg-[#09090b] text-zinc-100 font-sans overflow-hidden">
       {/* Sidebar */}
-      <aside className="w-16 md:w-64 border-r border-zinc-800 flex flex-col items-center md:items-stretch bg-zinc-950/50 backdrop-blur-xl">
+      <aside className="w-16 md:w-64 shrink-0 border-r border-zinc-800 flex flex-col items-center md:items-stretch bg-zinc-950/50 backdrop-blur-xl">
         <div className="p-6 flex items-center gap-3">
           <div className="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center shadow-lg shadow-emerald-500/20">
             <Cpu size={20} className="text-black" />
@@ -498,7 +498,7 @@ export default function App() {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col min-w-0">
+      <main className="flex-1 min-w-0 flex flex-col">
         {/* Header */}
         <header className="h-16 border-b border-zinc-800 flex items-center justify-between px-6 bg-zinc-950/20 backdrop-blur-md">
           <div className="flex items-center gap-4">
@@ -558,10 +558,10 @@ export default function App() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
-                className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[calc(100%-180px)]"
+                className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[calc(100%-180px)] min-w-0"
               >
                 {/* Source Editor */}
-                <div className="flex flex-col bg-zinc-950 border border-zinc-800 rounded-2xl overflow-hidden shadow-2xl">
+                <div className="flex min-w-0 flex-col bg-zinc-950 border border-zinc-800 rounded-2xl overflow-hidden shadow-2xl">
                   <div className="px-4 py-3 border-b border-zinc-800 flex items-center justify-between bg-zinc-900/50">
                     <div className="flex items-center gap-2">
                       <FileCode size={16} className="text-emerald-500" />
@@ -576,7 +576,7 @@ export default function App() {
                       <Copy size={14} />
                     </button>
                   </div>
-                  <div className="flex-1">
+                  <div className="flex-1 min-w-0">
                     <Editor
                       height="100%"
                       defaultLanguage="typescript"
@@ -584,6 +584,7 @@ export default function App() {
                       value={sourceCode}
                       onChange={(val) => setSourceCode(val || "")}
                       options={{
+                        automaticLayout: true,
                         minimap: { enabled: false },
                         fontSize: 14,
                         fontFamily: "'JetBrains Mono', monospace",
@@ -598,7 +599,7 @@ export default function App() {
                 </div>
 
                 {/* Test Editor */}
-                <div className="flex flex-col bg-zinc-950 border border-zinc-800 rounded-2xl overflow-hidden shadow-2xl">
+                <div className="flex min-w-0 flex-col bg-zinc-950 border border-zinc-800 rounded-2xl overflow-hidden shadow-2xl">
                   <div className="px-4 py-3 border-b border-zinc-800 flex items-center justify-between bg-zinc-900/50">
                     <div className="flex items-center gap-2">
                       <Sparkles size={16} className="text-emerald-500" />
@@ -613,7 +614,7 @@ export default function App() {
                       <Copy size={14} />
                     </button>
                   </div>
-                  <div className="flex-1">
+                  <div className="flex-1 min-w-0">
                     <Editor
                       height="100%"
                       defaultLanguage="typescript"
@@ -621,6 +622,7 @@ export default function App() {
                       value={generatedTests}
                       onChange={(val) => setGeneratedTests(val || "")}
                       options={{
+                        automaticLayout: true,
                         minimap: { enabled: false },
                         fontSize: 14,
                         fontFamily: "'JetBrains Mono', monospace",

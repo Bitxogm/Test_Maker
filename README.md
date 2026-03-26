@@ -1,65 +1,84 @@
-# TestLab AI 🧪
+# TestLab AI
 
-Generador y ejecutor de tests unitarios con IA para proyectos JavaScript/TypeScript y Python.
+Plataforma para generar tests unitarios con IA y ejecutarlos en sandbox Docker aislado, con visualización en tiempo real.
 
-## 🚀 Novedades y Características
+## Documentación
 
-### UI/UX (Dashboard)
+- [docs/INSTALLATION.md](docs/INSTALLATION.md) — cómo levantar el proyecto
+- [docs/APPLICATION.md](docs/APPLICATION.md) — funcionalidad y stack
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — arquitectura y diagramas
 
-- **Generación impulsada por IA:** Usa Gemini 2.5 Flash para crear tests unitarios limpios.
-- **Carga Rápida:** Botón "📂 Cargar Archivo" para cargar ficheros `.js`, `.ts` o `.py` directamente desde la interfaz, autodetectando el formato.
-- **Copiar a Portapapeles:** Copia fácilmente tests generados y logs de ejecución con un click.
-- **Terminal ANSI Colorized:** Parseo HTML (`ansi-to-html`) para visualizar el output en vivo de los tests con colores reales en la UI.
-- **Métricas de Cobertura y Progreso:** Monitor de métricas en la pestaña COVERAGE actualizadas vía eventos WebSocket con barra de progreso.
+---
 
-### Sandbox Cautivo (Docker)
+## Quickstart — Docker (recomendado)
 
-- **Aislamiento de Red Seguro:** El código se ejecuta dentro de contenedores efímeros usando una red Docker interna (`testlab-isolated`) para prevenir accesos no autorizados al exterior mientras se preserva el acceso localhost (previniendo fallo de `EAI_AGAIN`).
-- **Entornos Precargados:**
-  - `node`: Vitest 1.6.0.
-  - `react`: Vitest + JSDOM y Testing Library.
-  - `nextjs`: Base Next.js testing.
-  - `python`: `pytest`.
-
-## Stack Tecnológico
-
-- **Frontend**: Next.js 14 + Monaco Editor + Tailwind CSS + Ansi-to-html
-- **Backend**: Express + Arquitectura Hexagonal
-- **IA**: @google/generative-ai (Gemini)
-- **DB**: PostgreSQL (Prisma) para Sesiones y MongoDB (Mongoose) para Logs
-- **Comunicaciones**: Socket.io (Eventos de consola y completado en vivo)
-- **Infra Sandbox**: Dockerode
-- **Deploy**: Hetzner + Nginx + Docker Compose
-
-## Comandos de Desarrollo
+**Requisito único: tener Docker instalado y corriendo.**
 
 ```bash
-pnpm install      # Instalar dependencias e inicializar git hooks (Husky)
-pnpm dev          # Arranca API y Web concurrentemente
-pnpm dev:api      # Solo backend (Puerto 3001)
-pnpm dev:web      # Solo frontend (Puerto 3000)
-pnpm build        # Build de producción de todos los workspaces
-pnpm format       # Formatear el código (Prettier)
-pnpm lint         # Validación de linting (ESLint)
+# 1. Clonar
+git clone <tu-repo>
+cd Test_Lab_AI
+
+# 2. Crear el .env (solo una vez)
+cp .env.example .env
+# Editar .env y rellenar GEMINI_API_KEY y JWT_SECRET
+
+# 3. Levantar todo
+docker compose up --build
 ```
 
-## Setup del Sandbox de Testing
+Eso es todo. La app estará disponible en:
 
-Antes de lanzar una EJECUCIÓN EN VIVO desde la interfaz, es necesario compilar las imágenes locales base del sandbox:
+- Web: http://localhost:3000
+- API: http://localhost:3001/health
+
+---
+
+## Quickstart — Desarrollo local (sin Docker para la app)
+
+Si prefieres trabajar con hot reload y `pnpm dev`:
 
 ```bash
-# 1. Crear red aislada que permite loopback pero no Internet
-docker network create --internal testlab-isolated
+# 1. Instalar dependencias
+pnpm install
 
-# 2. Compilar imágenes
-cd apps/api/src/infrastructure/sandbox
-./build.sh
+# 2. Crear los .env de desarrollo
+cp .env.example .env
+# Editar .env con los valores de desarrollo (hosts localhost)
+
+# 3. Levantar solo las bases de datos
+docker compose up postgres mongo -d
+
+# 4. Preparar Prisma
+cd api && npx prisma generate && npx prisma db push && cd ..
+
+# 5. Crear red Docker para sandboxes
+docker network create --internal testlab-isolated || true
+
+# 6. Arrancar en modo dev
+pnpm dev
 ```
 
-## Git Hooks automáticos
+---
 
-Se dispone de ganchos (Husky) previos al commit:
+## Estructura
 
-1. 🔍 **check-secrets** — Asegura que no se suban API Keys como GEMINI_API_KEY.
-2. ✨ **Prettier** — Formato garantizado.
-3. 🔎 **ESLint** — Calidad de código.
+```
+Test_Lab_AI/
+├─ api/              ← Backend Express (fuera del workspace pnpm)
+├─ apps/web/         ← Frontend Next.js
+├─ packages/shared/  ← Tipos compartidos
+├─ docs/             ← Documentación
+├─ docker-compose.yml
+├─ .env.example      ← Plantilla de variables
+└─ .env              ← Tu entorno real (NO commitear)
+```
+
+## Archivos .env — regla clara
+
+| Archivo | Cuándo se usa |
+|---------|---------------|
+| `.env` | Siempre — Docker Compose y desarrollo local |
+| `.env.example` | Plantilla — se commitea, sin valores reales |
+
+> Los `.env.local` antiguos de `apps/api` y `apps/web` ya no son necesarios con esta configuración.

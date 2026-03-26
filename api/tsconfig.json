@@ -11,9 +11,8 @@
     "declaration": true,
     "sourceMap": true,
     "outDir": "./dist",
-    "rootDir": ".",
-    "baseUrl": "."
+    "rootDir": "."
   },
-  "include": ["src/**/*", "prisma.config.ts"],
-  "exclude": ["node_modules", "dist"]
+ "include": ["src/**/*"],
+"exclude": ["node_modules", "dist", "prisma.config.ts"]
 }
