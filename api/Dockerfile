@@ -5,9 +5,9 @@ WORKDIR /app
 
 # ── Dependencias ──────────────────────────────────────────────────────────────
 FROM base AS deps
-COPY api/package.json ./api/
+COPY api/package.json api/package-lock.json ./api/
 WORKDIR /app/api
-RUN npm install
+RUN npm ci
 
 # ── Build ──────────────────────────────────────────────────────────────────────
 FROM base AS builder
