@@ -1,84 +1,172 @@
-# TestLab AI
-
-Plataforma para generar tests unitarios con IA y ejecutarlos en sandbox Docker aislado, con visualización en tiempo real.
-
-## Documentación
-
-- [docs/INSTALLATION.md](docs/INSTALLATION.md) — cómo levantar el proyecto
-- [docs/APPLICATION.md](docs/APPLICATION.md) — funcionalidad y stack
-- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — arquitectura y diagramas
+# Aplicación — Funcionalidad y Stack
 
 ---
 
-## Quickstart — Docker (recomendado)
+## ¿Qué es TestLab AI?
 
-**Requisito único: tener Docker instalado y corriendo.**
+TestLab AI es una plataforma web que permite a los desarrolladores generar tests unitarios automáticamente usando IA y ejecutarlos en contenedores Docker aislados, con visualización de resultados en tiempo real.
 
-```bash
-# 1. Clonar
-git clone <tu-repo>
-cd Test_Lab_AI
+### Flujo principal
 
-# 2. Crear el .env (solo una vez)
-cp .env.example .env
-# Editar .env y rellenar GEMINI_API_KEY y JWT_SECRET
-
-# 3. Levantar todo
-docker compose up --build
-```
-
-Eso es todo. La app estará disponible en:
-
-- Web: http://localhost:3000
-- API: http://localhost:3001/health
+1. El usuario pega o carga su código fuente en el editor
+2. La IA (Gemini) analiza el código y genera una suite de tests completa
+3. El usuario ejecuta los tests — se lanza un contenedor sandbox efímero
+4. Los logs de ejecución aparecen línea a línea en el terminal de la app via WebSocket
+5. El resultado final se guarda en MongoDB para trazabilidad
 
 ---
 
-## Quickstart — Desarrollo local (sin Docker para la app)
+## Características
 
-Si prefieres trabajar con hot reload y `pnpm dev`:
-
-```bash
-# 1. Instalar dependencias
-pnpm install
-
-# 2. Crear los .env de desarrollo
-cp .env.example .env
-# Editar .env con los valores de desarrollo (hosts localhost)
-
-# 3. Levantar solo las bases de datos
-docker compose up postgres mongo -d
-
-# 4. Preparar Prisma
-cd api && npx prisma generate && npx prisma db push && cd ..
-
-# 5. Crear red Docker para sandboxes
-docker network create --internal testlab-isolated || true
-
-# 6. Arrancar en modo dev
-pnpm dev
-```
+- **Generación de tests con IA** — Gemini analiza el código y propone tests unitarios completos con mocks, casos edge y aserciones
+- **Sandbox Docker aislado** — Los tests corren en contenedores efímeros con red interna sin acceso exterior
+- **Streaming en tiempo real** — Los logs aparecen línea a línea via WebSocket mientras se ejecutan
+- **Multi-lenguaje** — Soporte para Node.js, React, Next.js y Python
+- **Chat contextual** — Conversa con la IA sobre tu código, tests y resultados de ejecución
+- **Autenticación JWT** — Registro e inicio de sesión con tokens seguros
+- **Historial de sesiones** — Las sesiones de test se guardan en PostgreSQL
 
 ---
 
-## Estructura
+## Stack tecnológico
 
+### Frontend (`apps/web`)
+
+| Tecnología | Uso |
+|-----------|-----|
+| Next.js 14 | Framework React con SSR |
+| React 18 | UI components |
+| TypeScript | Tipado estático |
+| Tailwind CSS | Estilos |
+| Monaco Editor | Editor de código en el navegador |
+| Socket.io client | Streaming de logs en tiempo real |
+| Axios | Llamadas HTTP a la API |
+
+### Backend (`api`)
+
+| Tecnología | Uso |
+|-----------|-----|
+| Node.js + Express | Servidor HTTP |
+| TypeScript | Tipado estático |
+| Prisma + PostgreSQL | Persistencia de usuarios y sesiones |
+| Mongoose + MongoDB | Logs de ejecución |
+| Socket.io | WebSockets para streaming |
+| Dockerode | Control de contenedores Docker desde Node |
+| Zod | Validación de entrada |
+| JWT + bcrypt | Autenticación |
+
+### IA
+
+| Tecnología | Uso |
+|-----------|-----|
+| Google Gemini | Generación de tests y chat contextual |
+| `@google/generative-ai` | SDK oficial |
+
+### Infraestructura
+
+| Tecnología | Uso |
+|-----------|-----|
+| Docker Compose | Orquestación de servicios |
+| Docker | Contenedores de sandbox para ejecución |
+| Red `testlab-isolated` | Aislamiento de red para sandboxes |
+
+---
+
+## API REST
+
+Base path: `/api`
+
+### Autenticación
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| POST | `/auth/register` | Registro de nuevo usuario |
+| POST | `/auth/login` | Login, devuelve JWT |
+
+### Tests
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| POST | `/tests/generate` | Genera tests con IA para el código enviado |
+| POST | `/tests/run` | Ejecuta los tests en un sandbox Docker |
+
+### Chat
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| POST | `/chat` | Chat contextual sobre código y tests |
+
+### Health
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/health` | Health check del servidor |
+
+---
+
+## WebSockets
+
+La ejecución de tests usa WebSockets para streaming en tiempo real. Canal por `sessionId`:
+
+| Evento | Dirección | Descripción |
+|--------|-----------|-------------|
+| `test:join` | Cliente → Servidor | Suscribirse a una sesión |
+| `test:joined` | Servidor → Cliente | Confirmación de suscripción |
+| `test:output` | Servidor → Cliente | Línea de terminal en vivo |
+| `test:complete` | Servidor → Cliente | Fin de ejecución + resumen |
+
+---
+
+## Persistencia
+
+### PostgreSQL (Prisma) — datos operativos
+
+- **`User`** — email, contraseña hasheada, plan, fecha de creación
+- **`TestSession`** — código original, tests generados, estado, lenguaje, metadata
+
+Estados de `TestSession`:
 ```
-Test_Lab_AI/
-├─ api/              ← Backend Express (fuera del workspace pnpm)
-├─ apps/web/         ← Frontend Next.js
-├─ packages/shared/  ← Tipos compartidos
-├─ docs/             ← Documentación
-├─ docker-compose.yml
-├─ .env.example      ← Plantilla de variables
-└─ .env              ← Tu entorno real (NO commitear)
+PENDING → RUNNING → PASSED
+                  → FAILED
+                  → ERROR
 ```
 
-## Archivos .env — regla clara
+### MongoDB (Mongoose) — logs ricos
 
-| Archivo | Cuándo se usa |
-|---------|---------------|
-| `.env` | Siempre — Docker Compose y desarrollo local |
-| `.env.example` | Plantilla — se commitea, sin valores reales |
+Colección `TestRunLog`:
+- Salida cruda completa del runner
+- Suites y tests parseados
+- Duración y resumen
+- Referenciado desde `TestSession` via `mongoLogId`
 
-> Los `.env.local` antiguos de `apps/api` y `apps/web` ya no son necesarios con esta configuración.
+---
+
+## Seguridad
+
+- Tests ejecutados en contenedores efímeros — se destruyen tras la ejecución
+- Red Docker interna `testlab-isolated` sin acceso a internet para los sandboxes
+- Límites de recursos por contenedor (memoria/CPU) y timeout de ejecución
+- Autenticación JWT para endpoints protegidos
+- Validación de entrada con Zod en todos los endpoints
+
+---
+
+## Entornos de runtime disponibles
+
+| Entorno | Imagen Docker |
+|---------|--------------|
+| Node.js | `testlab-node:latest` |
+| React | `testlab-react:latest` |
+| Next.js | `testlab-nextjs:latest` |
+| Python | `testlab-python:latest` |
+
+Las imágenes se construyen automáticamente al hacer `docker compose up --build` via el servicio `sandbox-builder`.
+
+---
+
+## Limitaciones actuales
+
+- La cobertura mostrada depende del parseo de la salida del runner
+- El frontend puede usar Gemini directamente en cliente para algunas acciones de chat
+- `packages/shared` preparado para crecimiento pero no centraliza todos los contratos todavía
+- Sin OpenAPI/Swagger — los contratos HTTP son implícitos
